@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 # ─── Dashboard terminal logger (pushes to dashboard._log_buffer) ────────────
 
 class _DashboardHandler(logging.Handler):
-    """Forwards all ai_trading_bot log records to the active dashboard instance."""
+    """Forwards all arbiter log records to the active dashboard instance."""
 
     def __init__(self, dashboard_ref):
         super().__init__()
@@ -53,12 +53,12 @@ def wire_dashboard_loggers(dashboard):
     global _dh
     if _dh:
         for _name in list(logging.root.manager.loggerDict.keys()):
-            if _name.startswith("ai_trading_bot"):
+            if _name.startswith("arbiter"):
                 logging.getLogger(_name).removeHandler(_dh)
     _dh = _DashboardHandler(dashboard.add_log)
     _dh.setLevel(logging.INFO)
     for _name in list(logging.root.manager.loggerDict.keys()):
-        if _name.startswith("ai_trading_bot"):
+        if _name.startswith("arbiter"):
             logging.getLogger(_name).addHandler(_dh)
 
 # ─── Activity helper ──────────────────────────────────────────────────────────
@@ -124,7 +124,7 @@ class AITradingBot:
 
         # State
         self._strategies: list[dict] = []
-        self._strategy_file = Path.home() / ".ai_trading_bot" / "strategies.json"
+        self._strategy_file = Path.home() / ".arbiter" / "strategies.json"
         self._load_strategies()
 
         # Dashboard (starts in background thread)

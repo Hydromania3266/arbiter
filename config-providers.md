@@ -1,4 +1,4 @@
-# AI Trading Bot — Configurazione API
+# Arbiter — Configurazione API
 
 # Opzione 1: Groq (RAFFONDATA — più veloce, gratis, stabile)
 # 1. Vai su https://console.groq.com/keys

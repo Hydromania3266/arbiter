@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Entry point for the AI Trading Bot."""
+"""Entry point for the Arbiter."""
 
 import asyncio
 import logging
@@ -10,9 +10,9 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from ai_trading_bot.bot import AITradingBot, print_status
-from ai_trading_bot.config import config
-from ai_trading_bot.llm import get_llm
+from arbiter.bot import AITradingBot, print_status
+from arbiter.config import config
+from arbiter.llm import get_llm
 
 logging.basicConfig(
     level=logging.INFO,
@@ -32,7 +32,7 @@ async def setup_wizard() -> None:
     console = Console()
     env_path = Path(__file__).parent.parent / ".env"
 
-    console.print("[bold green]🚀 AI Trading Bot Setup Wizard[/bold green]")
+    console.print("[bold green]🚀 Arbiter Setup Wizard[/bold green]")
     console.print("Answer a few questions and we'll configure everything for you.\n")
 
     # Trading mode
@@ -72,7 +72,7 @@ async def setup_wizard() -> None:
     min_trades = Prompt.ask("Trades before live", default="20")
 
     # Write .env
-    content = f"""# AI Trading Bot — AUTO-GENERATED CONFIGURATION
+    content = f"""# Arbiter — AUTO-GENERATED CONFIGURATION
 # Edit this file anytime to change settings.
 
 PAPER_MODE={"true" if paper else "false"}
@@ -141,7 +141,7 @@ async def live_mode() -> None:
 def cli() -> None:
     """Command-line entry point."""
     import argparse
-    parser = argparse.ArgumentParser(description="AI Trading Bot")
+    parser = argparse.ArgumentParser(description="Arbiter")
     parser.add_argument("command", nargs="?", default="run",
                         choices=["run", "test", "live", "setup"],
                         help="run (default), test (5-paper cycles), live, setup (wizard)")

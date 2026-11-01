@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI Trading Bot</title>
+<title>Arbiter — Autonomous AI Trading</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -79,8 +79,9 @@ input{width:100%;background:var(--bg);border:1px solid var(--border);color:#fff;
 <body>
 <div class="app">
   <header>
-    <div class="logo"><span>🤖</span> AI TRADING BOT</div>
+    <div class="logo"><span>⚖️</span> ARBITER</div>
     <div class="controls">
+      <div id="update-badge" style="display:none;font-size:0.7rem;background:var(--blue);padding:4px 10px;border-radius:6px;cursor:pointer" onclick="showUpdateModal()">🔄 Update</div>
       <div id="status-tag" style="font-size:0.75rem;font-weight:600;display:flex;align-items:center;background:var(--card-alt);padding:6px 12px;border-radius:20px;border:1px solid var(--border)">
         <span class="running-dot"></span> <span id="status-text">RUNNING</span>
       </div>
@@ -188,14 +189,108 @@ input{width:100%;background:var(--bg);border:1px solid var(--border);color:#fff;
     </div>
   </div>
 
+  <!-- Update Modal -->
+  <div id="update-modal" class="modal">
+    <div class="modal-content">
+      <div class="card-header"><span class="card-title">Update Available</span><button onclick="toggleModal('update-modal')" style="padding:4px;background:none;border:none;font-size:1.2rem">✕</button></div>
+      <div id="update-body" style="font-size:0.85rem;line-height:1.6;margin:16px 0">
+        <p style="margin-bottom:12px">A new version of Arbiter is available.</p>
+        <div id="update-version" style="font-weight:700;color:var(--blue);margin-bottom:8px"></div>
+        <div id="update-notes" style="background:var(--bg);padding:12px;border-radius:8px;font-size:0.8rem;white-space:pre-wrap;max-height:200px;overflow-y:auto"></div>
+      </div>
+      <div style="display:flex;gap:12px;margin-top:20px">
+        <button class="primary" style="flex:1" onclick="installUpdate()">Download & Install</button>
+        <button style="flex:1" onclick="toggleModal('update-modal')">Later</button>
+      </div>
+      <div id="update-progress" style="margin-top:16px;display:none">
+        <div style="font-size:0.75rem;color:var(--dim);margin-bottom:6px">Downloading...</div>
+        <div style="background:var(--bg);height:8px;border-radius:4px;overflow:hidden">
+          <div id="update-bar" style="width:0%;height:100%;background:var(--blue);transition:width .3s"></div>
+        </div>
+        <div id="update-percent" style="font-size:0.7rem;color:var(--dim);margin-top:4px;text-align:right">0%</div>
+      </div>
+    </div>
+  </div>
+
   <footer style="padding:10px 24px;border-top:1px solid var(--border);background:var(--card);font-size:0.65rem;color:var(--dim);display:flex;justify-content:space-between">
-    <div>Fidel Labs Trading Engine v0.1.0</div>
+    <div>Arbiter v0.1.0</div>
     <div id="last-sync">Last sync: Never</div>
   </footer>
 </div>
 
 <script>
-let ws, activities = [], currentMode = 'paper', isRunning = true;
+let ws, activities = [], currentMode = 'paper', isRunning = true, updateInfo = null;
+
+// Tauri updater integration
+function isTauriApp() {
+  return location.protocol === 'file:' || (window.__TAURI__ !== undefined);
+}
+
+function showUpdateModal() {
+  if (!updateInfo) return;
+  document.getElementById('update-version').textContent = 'Version ' + updateInfo.version;
+  document.getElementById('update-notes').textContent = updateInfo.body || 'Bug fixes and improvements';
+  toggleModal('update-modal');
+}
+
+async function installUpdate() {
+  const progressDiv = document.getElementById('update-progress');
+  const bar = document.getElementById('update-bar');
+  const pct = document.getElementById('update-percent');
+  progressDiv.style.display = 'block';
+
+  if (isTauriApp() && window.__TAURI__) {
+    try {
+      const { check } = window.__TAURI__.plugin.updater;
+      const update = await check();
+      if (update.available) {
+        let downloaded = 0;
+        let contentLength = 0;
+        await update.downloadAndInstall((event) => {
+          if (event.event === 'Started') {
+            contentLength = event.data.contentLength;
+          } else if (event.event === 'Progress') {
+            downloaded = event.data.chunkLength;
+            if (contentLength > 0) {
+              const percent = Math.round((downloaded / contentLength) * 100);
+              bar.style.width = percent + '%';
+              pct.textContent = percent + '%';
+            }
+          }
+        });
+        pct.textContent = 'Installing...';
+        // App will restart automatically
+      }
+    } catch (e) {
+      pct.textContent = 'Error: ' + e.message;
+    }
+  } else {
+    // Fallback: show manual instructions
+    pct.textContent = 'Please download from GitHub Releases';
+    setTimeout(() => {
+      window.open('https://github.com/fidellabs/arbiter/releases', '_blank');
+    }, 1500);
+  }
+}
+
+// Listen for update events from Tauri
+window.addEventListener('update-available', (e) => {
+  if (e.detail && e.detail.hasUpdate) {
+    updateInfo = { version: e.detail.version, body: e.detail.body };
+    document.getElementById('update-badge').style.display = 'block';
+  }
+});
+
+window.addEventListener('update-progress', (e) => {
+  if (e.detail) {
+    const bar = document.getElementById('update-bar');
+    const pct = document.getElementById('update-percent');
+    if (bar && pct) {
+      bar.style.width = e.detail.percent + '%';
+      pct.textContent = e.detail.percent + '%';
+    }
+  }
+});
 const AGENTS = {
   '📡 Market': '📡','🌐 News': '🌐','📰 Sentiment': '📰','🔍 Analyst': '🔍',
   '🛡️ Risk': '🛡️','⚡ Executor': '⚡','📋 Reviewer': '📋','🧠 Improver': '🧠'
@@ -294,11 +389,11 @@ function inspectAgent(name) {
   if(!act) return;
   document.getElementById('inspect-title').textContent = name + ' Analysis';
   document.getElementById('inspect-body').textContent = 
-    `Action: ${act.action}\\n` +
-    `Symbol: ${act.symbol || 'N/A'}\\n` +
-    `Duration: ${act.duration_ms}ms\\n\\n` +
-    `--- THINKING ---\\n${act.thinking}\\n\\n` +
-    `--- RESULT ---\\n${JSON.stringify(act.result, null, 2)}`;
+    `Action: ${act.action}\n` +
+    `Symbol: ${act.symbol || 'N/A'}\n` +
+    `Duration: ${act.duration_ms}ms\n\n` +
+    `--- THINKING ---\n${act.thinking}\n\n` +
+    `--- RESULT ---\n${JSON.stringify(act.result, null, 2)}`;
   toggleModal('inspect-modal');
 }
 
@@ -328,6 +423,16 @@ function applySettings() {
 
 function restartBot() {
   if(confirm('Reset all trades and start fresh?')) applySettings();
+}
+
+// Tauri invoke for update check
+if (isTauriApp() && window.__TAURI__ && window.__TAURI__.invoke) {
+  window.__TAURI__.invoke('check_for_updates').then((result) => {
+    if (result.has_update) {
+      updateInfo = { version: result.version, body: result.body };
+      document.getElementById('update-badge').style.display = 'block';
+    }
+  }).catch(console.error);
 }
 
 connect();
