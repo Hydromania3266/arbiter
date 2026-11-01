@@ -18,6 +18,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libssl-dev pkg-config libgtk-3-dev
 
+      - name: Install cargo-tauri
+        run: cargo install cargo-tauri --locked
+
       - name: Build Tauri app
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
