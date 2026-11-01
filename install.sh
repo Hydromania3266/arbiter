@@ -380,14 +380,13 @@ main() {
     build_desktop
 
     # Add Tauri desktop launcher if app was built
-    if [ -f "$SCRIPT_DIR/src-tauri/target/release/bundle/appimage/Aegis Trader_*.AppImage" ]; then
-        APPIMAGE_PATH=$(ls "$SCRIPT_DIR/src-tauri/target/release/bundle/appimage/"*.AppImage 2>/dev/null | head -1)
-        if [ -n "$APPIMAGE_PATH" ]; then
-            cp "$APPIMAGE_PATH" "$INSTALL_DIR/Aegis_Trader.AppImage"
-            chmod +x "$INSTALL_DIR/Aegis_Trader.AppImage"
-            
-            # Update desktop launcher to use Tauri app
-            cat > "$DESKTOP_FILE" << DESKTOP
+    APPIMAGE_PATH=$(ls "$SCRIPT_DIR/src-tauri/target/release/bundle/appimage/"*_amd64.AppImage 2>/dev/null | head -1)
+    if [ -n "$APPIMAGE_PATH" ]; then
+        cp "$APPIMAGE_PATH" "$INSTALL_DIR/Aegis_Trader.AppImage"
+        chmod +x "$INSTALL_DIR/Aegis_Trader.AppImage"
+        
+        # Update desktop launcher to use Tauri app
+        cat > "$DESKTOP_FILE" << DESKTOP
 [Desktop Entry]
 Name=Aegis Trader
 Comment=Autonomous Multi-Agent Trading System
@@ -398,9 +397,8 @@ Type=Application
 Categories=Finance;Utility;
 Keywords=trading;crypto;bot;ai;
 DESKTOP
-            chmod +x "$DESKTOP_FILE"
-            echo -e "${GREEN}✓${NC} Desktop launcher created (Tauri app)"
-        fi
+        chmod +x "$DESKTOP_FILE"
+        echo -e "${GREEN}✓${NC} Desktop launcher created (Tauri app)"
     fi
     
     echo -e "\n${GREEN}╔════════════════════════════════════════╗${NC}"
