@@ -33,9 +33,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "createUpdaterArtifacts": true,
-    "pub_url": "https://github.com/Hydromania3266/arbiter/releases/download",
-    "pub_target": "latest"
+    "createUpdaterArtifacts": true
   },
   "plugins": {
     "updater": {
