@@ -33,7 +33,7 @@ install.sh                    → One-command installer with setup wizard
 
 ```bash
 # Clone and install
-git clone https://github.com/fidellabs/arbiter.git
+git clone https://github.com/Hydromania3266/arbiter.git
 cd arbiter
 ./install.sh
 

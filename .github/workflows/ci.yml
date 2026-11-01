@@ -43,6 +43,9 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libssl-dev pkg-config libgtk-3-dev
 
       - name: Build Tauri app
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           cd src-tauri
           cargo tauri build
@@ -50,38 +53,23 @@ jobs:
       - name: Upload AppImage
         uses: actions/upload-artifact@v4
         with:
-          name: aegis-trader-appimage
+          name: arbiter-appimage
           path: src-tauri/target/release/bundle/appimage/*.AppImage
+
+      - name: Upload AppImage signature
+        uses: actions/upload-artifact@v4
+        with:
+          name: arbiter-appimage-sig
+          path: src-tauri/target/release/bundle/appimage/*.AppImage.sig
 
       - name: Upload deb
         uses: actions/upload-artifact@v4
         with:
-          name: aegis-trader-deb
+          name: arbiter-deb
           path: src-tauri/target/release/bundle/deb/*.deb
 
-  release:
-    runs-on: ubuntu-latest
-    needs: build-desktop
-    if: startsWith(github.ref, 'refs/tags/v')
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download AppImage
-        uses: actions/download-artifact@v4
+      - name: Upload deb signature
+        uses: actions/upload-artifact@v4
         with:
-          name: aegis-trader-appimage
-
-      - name: Download deb
-        uses: actions/download-artifact@v4
-        with:
-          name: aegis-trader-deb
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            *.AppImage
-            *.deb
-          generate_release_notes: true
+          name: arbiter-deb-sig
+          path: src-tauri/target/release/bundle/deb/*.deb.sig

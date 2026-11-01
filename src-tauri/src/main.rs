@@ -25,7 +25,7 @@ fn find_bot_dir(start: std::path::PathBuf) -> Option<std::path::PathBuf> {
 
 fn resolve_bot_dir() -> Option<std::path::PathBuf> {
     // 1. Explicit env var from the launcher script
-    if let Ok(dir) = std::env::var("AITB_DIR") {
+    if let Ok(dir) = std::env::var("ARBITER_DIR") {
         if let Some(found) = find_bot_dir(std::path::PathBuf::from(&dir)) {
             return Some(found);
         }

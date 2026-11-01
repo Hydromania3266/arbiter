@@ -1,7 +1,7 @@
 {
   "productName": "Arbiter",
-  "version": "0.1.0",
-  "identifier": "com.fidellabs.arbiter",
+  "version": "0.2.0",
+  "identifier": "com.hydromania3266.arbiter",
   "build": {
     "devUrl": "http://localhost:8090"
   },
@@ -33,13 +33,15 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "createUpdaterArtifacts": true
+    "createUpdaterArtifacts": true,
+    "pub_url": "https://github.com/Hydromania3266/arbiter/releases/download",
+    "pub_target": "latest"
   },
   "plugins": {
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDMzQ0Y4QjY2MDg2Q0NFODEKUldTQnptd0lab3ZQTS9nVlFCNWs3dnlTYjZURU9tVU1ZMFRaampCK1czbzBiQUtObVdlMk92dWMK",
       "endpoints": [
-        "https://github.com/fidellabs/arbiter/releases/latest/download/latest.json"
+        "https://github.com/Hydromania3266/arbiter/releases/latest/download/latest.json"
       ],
       "windows": {
         "installMode": "passive"

@@ -5,7 +5,7 @@ on:
     tags: ['v*']
 
 jobs:
-  build-linux:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -32,15 +32,27 @@ jobs:
           name: arbiter-appimage
           path: src-tauri/target/release/bundle/appimage/*.AppImage
 
+      - name: Upload AppImage signature
+        uses: actions/upload-artifact@v4
+        with:
+          name: arbiter-appimage-sig
+          path: src-tauri/target/release/bundle/appimage/*.AppImage.sig
+
       - name: Upload deb
         uses: actions/upload-artifact@v4
         with:
           name: arbiter-deb
           path: src-tauri/target/release/bundle/deb/*.deb
 
-  publish-release:
+      - name: Upload deb signature
+        uses: actions/upload-artifact@v4
+        with:
+          name: arbiter-deb-sig
+          path: src-tauri/target/release/bundle/deb/*.deb.sig
+
+  release:
     runs-on: ubuntu-latest
-    needs: build-linux
+    needs: build
     permissions:
       contents: write
     steps:
@@ -51,43 +63,49 @@ jobs:
         with:
           name: arbiter-appimage
 
+      - name: Download AppImage signature
+        uses: actions/download-artifact@v4
+        with:
+          name: arbiter-appimage-sig
+
       - name: Download deb
         uses: actions/download-artifact@v4
         with:
           name: arbiter-deb
 
-      - name: Generate latest.json for updater
+      - name: Download deb signature
+        uses: actions/download-artifact@v4
+        with:
+          name: arbiter-deb-sig
+
+      - name: Generate latest.json
         run: |
           VERSION=${GITHUB_REF#refs/tags/}
+          VERSION_NUM=${VERSION#v}
+          SIG=$(cat *.AppImage.sig | base64 -w0)
           cat > latest.json << EOF
           {
-            "version": "${VERSION#v}",
-            "notes": $(gh api "${GITHUB_REF}" --jq '.body' | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read() or "Release $' + '${VERSION#v}' + '")'),
+            "version": "${VERSION_NUM}",
+            "notes": "Release ${VERSION}",
             "pub_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
             "platforms": {
               "linux-x86_64": {
-                "signature": "$(cat signature.sig | base64 -w0)",
-                "url": "https://github.com/${{ github.repository }}/releases/download/${VERSION}/Arbiter_${VERSION#v}_amd64.AppImage"
+                "signature": "${SIG}",
+                "url": "https://github.com/${{ github.repository }}/releases/download/${VERSION}/Arbiter_${VERSION_NUM}_amd64.AppImage"
               }
             }
           }
           EOF
-        env:
-          GH_TOKEN: ${{ github.token }}
-
-      - name: Sign AppImage
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: |
-          cd src-tauri
-          cargo tauri signer sign ../target/release/bundle/appimage/*.AppImage
+          echo "Generated latest.json:"
+          cat latest.json
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
             *.AppImage
+            *.AppImage.sig
             *.deb
+            *.deb.sig
             latest.json
           generate_release_notes: true
