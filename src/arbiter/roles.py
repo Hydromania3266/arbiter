@@ -89,7 +89,7 @@ confidence score (0.0–1.0). Consider: trend, support/resistance, volume, RSI, 
 Do NOT be vague. Give a clear BUY/SELL/HOLD/SHORT signal."""
 
     async def __call__(self, symbol: str, candles: list[Any], llm: Any, news_context: str = "") -> TradeDecision:
-        from ai_trading_bot.llm import get_llm as _get_llm
+        from arbiter.llm import get_llm as _get_llm
         client = llm or _get_llm()
         latest = candles[-5:] if len(candles) >= 5 else candles
         candle_text = "\n".join(
@@ -121,7 +121,7 @@ position size (% of portfolio, max 5%), stop-loss distance, and take-profit targ
 Be conservative. Never allow more than 3% risk per trade. Output JSON."""
 
     async def __call__(self, decision: TradeDecision, current_price: float, llm: Any) -> TradeDecision:
-        from ai_trading_bot.llm import get_llm as _get_llm
+        from arbiter.llm import get_llm as _get_llm
         client = llm or _get_llm()
         data = await client.structured_chat(
             model=config.roles.risk,
@@ -147,7 +147,7 @@ class ExecutorRole:
     """Executes the trade (paper or live)."""
 
     async def execute(self, decision: TradeDecision, portfolio: Any, market: Any, llm: Any) -> TradeResult | None:
-        from ..llm import get_llm as _get_llm
+        from arbiter.llm import get_llm as _get_llm
         client = llm or _get_llm()
         current_price = await market.get_price(decision.symbol)
         qty = (portfolio.total_value * decision.position_size_pct / 100) / current_price
@@ -213,7 +213,7 @@ Always include scores for ALL requested symbols, even if no news mentions them
     async def __call__(
         self, news_brief: str, symbols: list[str], llm: Any, retries: int = 3
     ) -> dict:
-        from ai_trading_bot.llm import get_llm as _get_llm
+        from arbiter.llm import get_llm as _get_llm
         client = llm or _get_llm()
 
         # Normalize requested symbols to canonical forms for matching
@@ -324,7 +324,7 @@ exit, P&L, and reasoning, identify: what was done well, what was wrong, and one
 actionable improvement. Output JSON."""
 
     async def __call__(self, trade: TradeResult, llm: Any) -> dict:
-        from ai_trading_bot.llm import get_llm as _get_llm
+        from arbiter.llm import get_llm as _get_llm
         client = llm or _get_llm()
         try:
             data = await client.structured_chat(
@@ -355,7 +355,7 @@ past trades with outcomes, identify patterns in mistakes and suggest ONE concret
 rule change that would improve future performance. Focus on repeatable errors."""
 
     async def __call__(self, trades: list[TradeResult], llm: Any) -> dict | None:
-        from ai_trading_bot.llm import get_llm as _get_llm
+        from arbiter.llm import get_llm as _get_llm
         client = llm or _get_llm()
         if len(trades) < config.learning.feedback_window:
             return None
