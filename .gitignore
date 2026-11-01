@@ -13,6 +13,7 @@ env/
 # Environment
 .env
 .env.local
+src-tauri/.env
 
 # IDE
 .idea/
