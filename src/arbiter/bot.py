@@ -246,6 +246,8 @@ class AITradingBot:
             pnl_pct=0,
             hold_duration_minutes=0,
             reason=decision.reasoning[:200],
+            stop_loss=decision.stop_loss,
+            take_profit=decision.take_profit,
         )
 
         # Notify
@@ -256,17 +258,43 @@ class AITradingBot:
         return result
 
     async def simulate_exit(self, trade: TradeResult) -> TradeResult:
-        """Paper mode: simulate price movement and close."""
+        """Paper mode: simulate price movement and close at stop-loss / take-profit."""
         import random
         await asyncio.sleep(0.5)
-        change = random.gauss(0, 0.015)  # 1.5% vol per cycle
-        exit_price = trade.entry_price * (1 + change)
-        pnl = (exit_price - trade.entry_price) * trade.quantity
+
+        entry = trade.entry_price
+        side = trade.side  # "buy" or "sell"
+
+        # Use stop-loss / take-profit from the risk assessment if available
+        sl = trade.stop_loss
+        tp = trade.take_profit
+
+        change = 0.0
+        exit_reason = "simulated exit"
+
+        if sl and tp:
+            # Randomly decide whether price hits TP or SL first (biased toward SL ~60%)
+            hit_tp = random.random() < 0.4
+            if hit_tp:
+                # Price moves toward take-profit
+                change = (tp - entry) / entry * 0.95  # land just before TP
+                exit_reason = f"take-profit hit ({tp:.2f})"
+            else:
+                # Price moves toward stop-loss
+                change = (sl - entry) / entry * 1.05  # land just past SL
+                exit_reason = f"stop-loss hit ({sl:.2f})"
+        else:
+            # Fallback: pure random movement (1.5% vol per cycle)
+            change = random.gauss(0, 0.015)
+            exit_reason = f"simulated exit (vol={change:+.2%})"
+
+        exit_price = entry * (1 + change)
+        pnl = (exit_price - entry) * trade.quantity
         trade.exit_price = exit_price
         trade.pnl = pnl
-        trade.pnl_pct = (pnl / (trade.entry_price * trade.quantity)) * 100
+        trade.pnl_pct = (pnl / (entry * trade.quantity)) * 100
         trade.hold_duration_minutes = random.uniform(10, 240)
-        trade.reason = f"simulated exit (vol={change:+.2%})"
+        trade.reason = exit_reason
 
         self.portfolio.cash += pnl
         self.portfolio.add_trade(trade)

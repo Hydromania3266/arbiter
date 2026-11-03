@@ -171,32 +171,28 @@ def main():
     
     # LLM Provider
     print("\n🧠 LLM Provider")
-    print("   Options: openai, groq, deepseek, freellmapi, ollama")
-    provider = ask("LLM Provider", default="freellmapi")
-    
-    if provider == "openai":
+    print("   Options: opencode, claude, openai, custom (any OpenAI-compatible endpoint)")
+    provider = ask("LLM Provider", default="opencode", choices=["opencode", "claude", "openai", "custom"])
+
+    if provider == "opencode":
+        api_base = "http://localhost:11434/v1"
+        model = ask("Model", default="llama3.2")
+        llm_key = ask("API Key (if required)", default="", hide=True)
+    elif provider == "claude":
+        api_base = "https://api.anthropic.com/v1"
+        model = ask("Model", default="claude-3-5-sonnet-20241022")
+        llm_key = ask("Anthropic API Key", hide=True)
+    elif provider == "openai":
         api_base = "https://api.openai.com/v1"
         model = ask("Model", default="gpt-4o-mini")
         llm_key = ask("OpenAI API Key", hide=True)
-    elif provider == "groq":
-        api_base = "https://api.groq.com/openai/v1"
-        model = ask("Model", default="llama-3.3-70b-versatile")
-        llm_key = ask("Groq API Key", hide=True)
-    elif provider == "deepseek":
-        api_base = "https://api.deepseek.com/v1"
-        model = ask("Model", default="deepseek-chat")
-        llm_key = ask("DeepSeek API Key", hide=True)
-    elif provider == "freellmapi":
-        api_base = ask("FreeLLMAPI URL", default="http://127.0.0.1:3001/v1")
-        model = ask("Model", default="auto")
-        llm_key = ask("API Key (if required)", default="", hide=True)
-    elif provider == "ollama":
-        api_base = ask("Ollama URL", default="http://localhost:11434/v1")
+    elif provider == "custom":
+        api_base = ask("API Base URL", default="http://localhost:11434/v1")
         model = ask("Model", default="llama3.2")
-        llm_key = ""
+        llm_key = ask("API Key (if required)", default="", hide=True)
     else:
-        api_base = ""
-        model = ""
+        api_base = "http://localhost:11434/v1"
+        model = "llama3.2"
         llm_key = ""
     
     # Telegram (optional)
@@ -354,15 +350,79 @@ build_desktop() {
     echo "   AppImage: $SCRIPT_DIR/src-tauri/target/release/bundle/appimage/"
 }
 
-# Create start script
+# Create start script (main entry point — launches bot + dashboard)
 create_start_script() {
-    cat > "$INSTALL_DIR/start.sh" << 'START'
+    cat > "$INSTALL_DIR/start.sh" << 'STARTSCRIPT'
 #!/usr/bin/env bash
-cd "$(dirname "$0")"
+set -euo pipefail
+
+INSTALL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WEB_PORT="${WEB_PORT:-8090}"
+LOG_FILE="$INSTALL_DIR/arbiter.log"
+
+cd "$INSTALL_DIR"
 source .venv/bin/activate
-python -m src.main run
-START
+
+# Kill any existing Arbiter bot process on this port
+if command -v fuser &> /dev/null; then
+    fuser -k "${WEB_PORT}/tcp" 2>/dev/null || true
+elif command -v lsof &> /dev/null; then
+    lsof -ti ":${WEB_PORT}" | xargs kill -9 2>/dev/null || true
+fi
+
+# Start the bot + dashboard server in the background
+echo "🚀 Starting Arbiter backend on port $WEB_PORT..."
+nohup python -m src.main run > "$LOG_FILE" 2>&1 &
+BOT_PID=$!
+echo $BOT_PID > "$INSTALL_DIR/.arbiter.pid"
+
+# Wait for the dashboard server to be ready
+echo "⏳ Waiting for dashboard to be ready..."
+for i in $(seq 1 30); do
+    if curl -sf "http://localhost:${WEB_PORT}/api/status" > /dev/null 2>&1; then
+        echo "✅ Dashboard ready at http://localhost:${WEB_PORT}"
+        break
+    fi
+    sleep 1
+done
+
+# Try to open the dashboard
+if command -v xdg-open &> /dev/null; then
+    xdg-open "http://localhost:${WEB_PORT}" 2>/dev/null &
+elif command -v open &> /dev/null; then
+    open "http://localhost:${WEB_PORT}" 2>/dev/null &
+fi
+
+echo ""
+echo "╔═════════════════════════════════════════╗"
+echo "║   ✅  Arbiter is running               ║"
+echo "║   Dashboard: http://localhost:${WEB_PORT}      ║"
+echo "║   Bot PID: $BOT_PID                    ║"
+echo "║   Logs:    tail -f $LOG_FILE           ║"
+echo "║   Stop:    $INSTALL_DIR/stop.sh        ║"
+echo "╚═════════════════════════════════════════╝"
+STARTSCRIPT
     chmod +x "$INSTALL_DIR/start.sh"
+
+    # Create stop script
+    cat > "$INSTALL_DIR/stop.sh" << 'STOPSCRIPT'
+#!/usr/bin/env bash
+INSTALL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$INSTALL_DIR/.arbiter.pid" ]; then
+    PID=$(cat "$INSTALL_DIR/.arbiter.pid")
+    if kill -0 "$PID" 2>/dev/null; then
+        kill "$PID" 2>/dev/null
+        echo "🛑 Arbiter stopped (PID $PID)"
+    else
+        echo "⚠️  Arbiter was not running"
+    fi
+    rm -f "$INSTALL_DIR/.arbiter.pid"
+else
+    echo "⚠️  No PID file found, trying pkill..."
+    pkill -f "src.main run" 2>/dev/null || echo "   No Arbiter process found"
+fi
+STOPSCRIPT
+    chmod +x "$INSTALL_DIR/stop.sh"
 }
 
 # Main

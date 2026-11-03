@@ -43,6 +43,8 @@ class TradeResult:
     pnl_pct: float
     hold_duration_minutes: float
     reason: str
+    stop_loss: float | None = None
+    take_profit: float | None = None
     timestamp: datetime = field(default_factory=datetime.now)
 
 

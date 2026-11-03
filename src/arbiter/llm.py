@@ -1,4 +1,4 @@
-"""LLM client — wraps any OpenAI-compatible API (free models from freellmapi etc.)"""
+"""LLM client — supports opencode, claude, openai and any OpenAI-compatible endpoint."""
 
 from __future__ import annotations
 import json
@@ -13,14 +13,22 @@ logger = logging.getLogger(__name__)
 
 
 class LLMClient:
-    """OpenAI-compatible client for free models."""
+    """Unified LLM client supporting opencode, claude, openai and custom providers.
+
+    - opencode   → OpenAI-compatible local endpoint (default http://localhost:11434/v1)
+    - claude     → Anthropic Messages API (https://api.anthropic.com/v1/messages)
+    - openai     → OpenAI API (https://api.openai.com/v1/chat/completions)
+    - custom     → any OpenAI-compatible endpoint
+    """
 
     def __init__(
         self,
+        provider: str = "opencode",
         api_key: str = "",
-        base_url: str = "http://127.0.0.1:3001/v1",
-        default_model: str = "gemini-3.8-flash",
+        base_url: str = "http://localhost:11434/v1",
+        default_model: str = "llama3.2",
     ):
+        self.provider = provider.lower()
         self.api_key = api_key
         self.base_url = base_url.rstrip("/")
         self.default_model = default_model
@@ -29,7 +37,9 @@ class LLMClient:
     async def close(self) -> None:
         await self._client.aclose()
 
-    async def chat(
+    # ── OpenAI-compatible (opencode, openai, custom) ──────────────────────
+
+    async def _chat_openai_compat(
         self,
         *,
         model: str | None = None,
@@ -37,11 +47,9 @@ class LLMClient:
         messages: list[dict[str, str] | str] | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
-        json_mode: bool = False,
     ) -> str:
         model = model or self.default_model
         msgs = messages or []
-        # Normalise: strings become {"role":"user","content":s}
         normalised: list[dict[str, str]] = []
         for m in msgs:
             if isinstance(m, str):
@@ -62,6 +70,77 @@ class LLMClient:
         resp.raise_for_status()
         data = resp.json()
         return data["choices"][0]["message"]["content"].strip()
+
+    # ── Claude / Anthropic ────────────────────────────────────────────────
+
+    async def _chat_claude(
+        self,
+        *,
+        model: str | None = None,
+        system: str | None = None,
+        messages: list[dict[str, str] | str] | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> str:
+        model = model or self.default_model
+        msgs = messages or []
+        normalised: list[dict[str, str]] = []
+        for m in msgs:
+            if isinstance(m, str):
+                normalised.append({"role": "user", "content": m})
+            else:
+                normalised.append(m)
+
+        # Claude doesn't support system role inside messages array → pass as top-level
+        body: dict[str, Any] = {
+            "model": model,
+            "messages": normalised,
+            "temperature": temperature or 0.3,
+            "max_tokens": max_tokens or 2048,
+        }
+        if system:
+            body["system"] = system
+
+        headers = {
+            "x-api-key": self.api_key,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+        }
+        resp = await self._client.post("/messages", json=body, headers=headers)
+        resp.raise_for_status()
+        data = resp.json()
+        # Claude returns content as a list of blocks
+        content = data.get("content", [])
+        if isinstance(content, list):
+            parts = []
+            for block in content:
+                if block.get("type") == "text":
+                    parts.append(block.get("text", ""))
+            return "\n".join(parts).strip()
+        return str(content).strip()
+
+    # ── Unified chat ──────────────────────────────────────────────────────
+
+    async def chat(
+        self,
+        *,
+        model: str | None = None,
+        system: str | None = None,
+        messages: list[dict[str, str] | str] | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        json_mode: bool = False,
+    ) -> str:
+        if self.provider == "claude":
+            return await self._chat_claude(
+                model=model, system=system, messages=messages,
+                temperature=temperature, max_tokens=max_tokens,
+            )
+        # opencode / openai / custom → OpenAI-compatible
+        return await self._chat_openai_compat(
+            model=model, system=system, messages=messages,
+            temperature=temperature, max_tokens=max_tokens,
+        )
 
     async def structured_chat(
         self,
@@ -94,6 +173,7 @@ def get_llm() -> LLMClient:
     global _client
     if _client is None:
         _client = LLMClient(
+            provider=config.llm.provider,
             api_key=config.llm.api_key,
             base_url=config.llm.api_base,
             default_model=config.llm.default_model,

@@ -12,20 +12,21 @@ load_dotenv()
 
 
 class LLMConfig(BaseModel):
-    # Works with ANY OpenAI-compatible endpoint (freellmapi, Groq, DeepSeek, OpenRouter…)
-    api_base: str = "http://127.0.0.1:3001/v1"
+    # LLM Provider: opencode | claude | openai | custom
+    provider: str = "opencode"
+    api_base: str = "http://localhost:11434/v1"
     api_key: str = ""
-    default_model: str = "gemini-3.8-flash"
+    default_model: str = "llama3.2"
     temperature: float = 0.3
     max_tokens: int = 2048
 
 
 class RoleConfigs(BaseModel):
-    analyst: str = "gemini-3.8-flash"
-    risk: str = "glm-5.3-flash"
-    executor: str = "qwen3.8-flash"
-    reviewer: str = "agnes-2.5-flash"
-    improvement: str = "deepseek-v4-flash"  # learns from mistakes
+    analyst: str = "llama3.2"
+    risk: str = "llama3.2"
+    executor: str = "llama3.2"
+    reviewer: str = "llama3.2"
+    improvement: str = "llama3.2"  # learns from mistakes
 
 
 class TradingConfig(BaseModel):
@@ -62,16 +63,17 @@ class Config(BaseModel):
     def from_env(cls) -> "Config":
         return cls(
             llm=LLMConfig(
-                api_base=os.getenv("LLM_API_BASE", "http://127.0.0.1:3001/v1"),
-                api_key=os.getenv("LLM_API_KEY") or os.getenv("FREELLMAPI_KEY", ""),
-                default_model=os.getenv("ROLE_ANALYST", "gemini-3.8-flash"),
+                provider=os.getenv("LLM_PROVIDER", "opencode"),
+                api_base=os.getenv("LLM_API_BASE", "http://localhost:11434/v1"),
+                api_key=os.getenv("LLM_API_KEY", ""),
+                default_model=os.getenv("LLM_MODEL", "llama3.2"),
             ),
             roles=RoleConfigs(
-                analyst=os.getenv("ROLE_ANALYST", "gemini-3.8-flash"),
-                risk=os.getenv("ROLE_RISK", "glm-5.3-flash"),
-                executor=os.getenv("ROLE_EXECUTOR", "qwen3.8-flash"),
-                reviewer=os.getenv("ROLE_REVIEWER", "agnes-2.5-flash"),
-                improvement=os.getenv("ROLE_IMPROVEMENT", "deepseek-v4-flash"),
+                analyst=os.getenv("ROLE_ANALYST", "llama3.2"),
+                risk=os.getenv("ROLE_RISK", "llama3.2"),
+                executor=os.getenv("ROLE_EXECUTOR", "llama3.2"),
+                reviewer=os.getenv("ROLE_REVIEWER", "llama3.2"),
+                improvement=os.getenv("ROLE_IMPROVEMENT", "llama3.2"),
             ),
             trading=TradingConfig(
                 mode="paper" if os.getenv("PAPER_MODE", "true").lower() in ("true", "1", "paper") else "live",
